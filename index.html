@@ -14,7 +14,7 @@
         .result-card { border: none; border-left: 6px solid #4c5c92; background-color: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; margin-bottom: 1rem; border-radius: 8px; }
         .result-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
         .store-title { color: #2c3e50; font-size: 1.4rem; border-bottom: 2px dashed #eee; padding-bottom: 10px; margin-bottom: 15px; font-weight: bold; }
-        .info-label { font-weight: 600; color: #6c757d; margin-bottom: 4px; font-size: 0.9rem; }
+        .info-label { font-weight: 600; color: #6c757d; margin-bottom: 6px; font-size: 0.9rem; }
         .reward-rate { color: #e74c3c; font-size: 1.8rem; font-weight: 900; }
         #loading { display: none; text-align: center; margin-top: 30px; }
         
@@ -28,12 +28,18 @@
             border-radius: 6px;
             font-size: 0.95rem;
             color: #495057;
+            line-height: 1.6;
         }
         /* 按鈕樣式微調 */
         .btn-toggle-rules {
             font-size: 0.85rem;
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 20px;
+        }
+        .scheme-badge {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
         }
     </style>
 </head>
@@ -43,7 +49,7 @@
     <h2 class="text-center mb-4" style="color: #2c3e50; font-weight: bold;">💳 信用卡回饋快速查詢</h2>
     
     <div class="mb-4">
-        <input type="text" class="form-control form-control-lg shadow-sm" id="searchInput" placeholder="請輸入想查詢的店家 (例如：茶六、全家、高鐵)..." style="border-radius: 10px; border: 1px solid #ced4da;">
+        <input type="text" class="form-control form-control-lg shadow-sm" id="searchInput" placeholder="請輸入想查詢的店家 (例如：茶六、全家、蝦皮)..." style="border-radius: 10px; border: 1px solid #ced4da;">
     </div>
 
     <div id="loading">
@@ -67,7 +73,6 @@
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS8wj191NVP1LUommlS-QW-S2hLtZBPBZrus7PIR8BeZKVixg1H72yvawwjjLh1ELtOvfS6DbqN_Nbi/pub?output=csv'; 
     let creditCardData = [];
 
-    // 取得並解析 CSV 資料
     function fetchAndParseData() {
         document.getElementById('loading').style.display = 'block';
         Papa.parse(csvUrl, {
@@ -84,7 +89,6 @@
         });
     }
 
-    // 搜尋功能
     document.getElementById('searchInput').addEventListener('input', function(e) {
         const keyword = e.target.value.trim().toLowerCase();
         const resultsContainer = document.getElementById('resultsContainer');
@@ -101,7 +105,6 @@
         displayResults(filteredData, keyword);
     });
 
-    // 切換顯示方案細節的函數
     function toggleDetails(buttonId, detailsId) {
         const detailsDiv = document.getElementById(detailsId);
         const button = document.getElementById(buttonId);
@@ -113,13 +116,12 @@
             button.classList.add('btn-secondary');
         } else {
             detailsDiv.style.display = "none";
-            button.innerHTML = '<i class="fas fa-info-circle me-1"></i> 點我看權益 / 方案規則';
+            button.innerHTML = '<i class="fas fa-info-circle me-1"></i> 點我看注意事項';
             button.classList.remove('btn-secondary');
             button.classList.add('btn-outline-secondary');
         }
     }
 
-    // 顯示結果
     function displayResults(data, keyword) {
         const resultsContainer = document.getElementById('resultsContainer');
         resultsContainer.innerHTML = '';
@@ -132,43 +134,52 @@
         data.forEach((item, index) => {
             // 判斷卡片顏色
             let cardBadgeColor = item['信用卡'].includes('CUBE') ? 'bg-success' : (item['信用卡'].includes('GoGo') || item['信用卡'].includes('Richart') ? 'bg-danger' : 'bg-primary');
-            let schemeInfo = item['權益方案/條件'] ? item['權益方案/條件'] : '無特殊條件';
+            let rawSchemeInfo = item['權益方案/條件'] ? item['權益方案/條件'] : '無特殊條件';
             
-            // 產生唯一的 ID 給按鈕和詳情區塊
+            // 自動萃取短版「切換方案名稱」(抓取第一行且不含括號的內容)
+            let shortScheme = "預設免切換";
+            if (rawSchemeInfo && rawSchemeInfo !== '無特殊條件') {
+                let firstLine = rawSchemeInfo.split('\n')[0].replace(/<br>/g, '');
+                shortScheme = firstLine.split(/[(（\-:]/)[0].trim();
+                if(shortScheme.length > 15) shortScheme = shortScheme.substring(0, 15) + '...';
+            }
+            
             const detailsId = `details-${index}`;
             const buttonId = `btn-${index}`;
 
             const cardHtml = `
                 <div class="card result-card">
                     <div class="card-body p-4">
-                        <!-- 標題直接顯示搜尋的店家名稱 -->
                         <h4 class="store-title"><i class="fas fa-store me-2 text-secondary"></i>${item['店家名稱']}</h4>
                         
                         <div class="row align-items-center">
-                            <!-- 刷哪張卡 -->
-                            <div class="col-6 col-md-4">
-                                <div class="info-label">建議刷這張卡</div>
-                                <span class="badge ${cardBadgeColor} fs-6 px-3 py-2 shadow-sm">${item['信用卡']}</span>
+                            <!-- 刷這張卡 & 方案 -->
+                            <div class="col-12 col-md-6 mb-3 mb-md-0">
+                                <div class="info-label">刷卡與方案指南</div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                                    <span class="badge ${cardBadgeColor} fs-6 px-3 py-2 shadow-sm">${item['信用卡']}</span>
+                                    <span class="badge scheme-badge fs-6 px-3 py-2 shadow-sm"><i class="fas fa-exchange-alt me-1"></i> 切換：${shortScheme}</span>
+                                </div>
                             </div>
                             
                             <!-- 最高回饋 -->
-                            <div class="col-6 col-md-4 text-end text-md-center">
+                            <div class="col-6 col-md-3 text-start text-md-center mt-2 mt-md-0">
                                 <div class="info-label">最高回饋</div>
                                 <div class="reward-rate">${item['回饋比例']}</div>
                             </div>
                             
                             <!-- 規則按鈕 -->
-                            <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
-                                <button id="${buttonId}" class="btn btn-outline-secondary btn-toggle-rules" onclick="toggleDetails('${buttonId}', '${detailsId}')">
-                                    <i class="fas fa-info-circle me-1"></i> 點我看權益 / 方案規則
+                            <div class="col-6 col-md-3 text-end mt-2 mt-md-0">
+                                <button id="${buttonId}" class="btn btn-outline-secondary btn-toggle-rules w-100" onclick="toggleDetails('${buttonId}', '${detailsId}')">
+                                    <i class="fas fa-info-circle me-1"></i> 點我看注意事項
                                 </button>
                             </div>
                         </div>
                         
-                        <!-- 隱藏的權益方案/條件區塊 -->
-                        <div id="${detailsId}" class="scheme-details">
-                            <strong>📌 需符合以下條件：</strong><br>
-                            ${schemeInfo.replace(/\\n/g, '<br>')}
+                        <!-- 隱藏的注意事項 -->
+                        <div id="${detailsId}" class="scheme-details shadow-sm">
+                            <strong>📌 詳細方案與條件說明：</strong><br>
+                            ${rawSchemeInfo.replace(/\n/g, '<br>')}
                         </div>
                     </div>
                 </div>
