@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>信用卡回饋查詢儀表板</title>
+    <!-- 引入 Bootstrap CSS 讓介面簡潔好看 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding: 20px; }
+        .dashboard-container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .result-card { margin-top: 15px; border-left: 5px solid #0d6efd; transition: transform 0.2s; }
+        .result-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #loading { display: none; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <h2 class="text-center mb-4">💳 信用卡回饋查詢小幫手</h2>
+    
+    <div class="mb-3">
+        <label for="searchInput" class="form-label">請輸入店家名稱 (例如：全家、新光三越、Uber Eats)</label>
+        <input type="text" class="form-control form-control-lg" id="searchInput" placeholder="輸入想查詢的店家...">
+    </div>
+
+    <div id="loading" class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">載入中...</span>
+    </div>
+
+    <div id="resultsContainer" class="mt-4">
+        <!-- 查詢結果會顯示在這裡 -->
+    </div>
+</div>
+
+<!-- 引入 PapaParse 用來解析 CSV -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+    // ==========================================
+    // 請將下方的網址替換為您從試算表發布的 CSV 網址
+    // ==========================================
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS8wj191NVP1LUommlS-QW-S2hLtZBPBZrus7PIR8BeZKVixg1H72yvawwjjLh1ELtOvfS6DbqN_Nbi/pub?output=csv'; 
+    let creditCardData = [];
+
+    // 取得並解析 CSV 資料
+    function fetchAndParseData() {
+        document.getElementById('loading').style.display = 'block';
+        Papa.parse(csvUrl, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                creditCardData = results.data.filter(row => row['店家名稱']); // 過濾掉空行
+                document.getElementById('loading').style.display = 'none';
+                console.log("資料載入成功！", creditCardData);
+            },
+            error: function(err) {
+                console.error("載入資料發生錯誤:", err);
+                document.getElementById('resultsContainer').innerHTML = `<div class="alert alert-danger">資料載入失敗，請確認試算表 CSV 連結是否正確。</div>`;
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+    }
+
+    // 搜尋功能
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const keyword = e.target.value.trim().toLowerCase();
+        const resultsContainer = document.getElementById('resultsContainer');
+        
+        if (keyword === '') {
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        const filteredData = creditCardData.filter(item => 
+            item['店家名稱'] && item['店家名稱'].toLowerCase().includes(keyword)
+        );
+
+        displayResults(filteredData, keyword);
+    });
+
+    // 顯示結果
+    function displayResults(data, keyword) {
+        const resultsContainer = document.getElementById('resultsContainer');
+        resultsContainer.innerHTML = '';
+
+        if (data.length === 0) {
+            resultsContainer.innerHTML = `<div class="alert alert-warning">找不到包含「${keyword}」的店家回饋資訊。</div>`;
+            return;
+        }
+
+        data.forEach(item => {
+            const cardHtml = `
+                <div class="card result-card">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold text-primary">${item['店家名稱']}</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">推薦信用卡：${item['信用卡']}</h6>
+                        <p class="card-text mb-1"><strong>💰 回饋比例：<span class="text-danger fs-5">${item['回饋比例']}</span></strong></p>
+                        <p class="card-text text-secondary small">📝 方案/條件：${item['權益方案/條件'] || '無'}</p>
+                    </div>
+                </div>
+            `;
+            resultsContainer.innerHTML += cardHtml;
+        });
+    }
+
+    // 頁面載入時先去抓資料
+    window.onload = fetchAndParseData;
+</script>
+
+</body>
+</html>
